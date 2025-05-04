@@ -1,0 +1,695 @@
+# DevOps Plan for AWS Project with GitHub and Terraform
+
+## 1. Project Setup
+
+### Repository Structure
+```
+project-root/
+├── .github/
+│   ├── workflows/        # CI/CD workflow definitions
+│   ├── CODEOWNERS        # Defines individuals responsible for code review
+│   └── SECURITY.md       # Security policy and vulnerability reporting
+├── terraform/
+│   ├── modules/          # Reusable infrastructure components
+│   ├── environments/     # Environment-specific configs (dev, staging, prod)
+│   └── backend.tf        # Remote state configuration
+├── src/                  # Application source code
+├── tests/                # Test suites
+│   ├── unit/             # Unit tests
+│   ├── integration/      # Integration tests
+│   └── security/         # Security tests
+├── docs/                 # Documentation
+│   ├── architecture/     # Architecture diagrams and decisions
+│   ├── compliance/       # Compliance documentation and evidence
+│   └── runbooks/         # Operational runbooks for incident response
+├── scripts/              # Utility scripts
+├── .gitignore            # Prevents committing sensitive files
+├── .pre-commit-config.yaml # Git pre-commit hooks for security scanning
+└── README.md             # Project documentation
+```
+
+### Initial Setup
+1. Create a GitHub repository with branch protection rules
+   - Require pull request reviews before merging
+   - Require status checks to pass before merging
+   - Require signed commits
+   - Do not allow bypassing the above settings
+
+2. Set up conventional commit standards
+   - Use commitlint to enforce commit message format
+   - Implement Semantic Versioning for releases
+   - Configure commit message templates
+
+3. Configure issue and PR templates
+   - Security review checklist in PR template
+   - Security impact assessment section
+   - Compliance verification steps
+
+4. Security foundations
+   - Set up pre-commit hooks for secret detection (git-secrets, detect-secrets)
+   - Configure Dependabot for automated dependency updates
+   - Enable CodeQL for automated code scanning
+   - Implement code signing with GPG keys
+
+5. Documentation setup
+   - Create Architecture Decision Records (ADRs) template
+   - Establish compliance documentation framework
+   - Define runbook templates for operational procedures
+   - Document security controls mapped to compliance frameworks
+
+6. Local development environment
+   - Create dev container configuration for consistent environments
+   - Add .editorconfig for code style consistency
+   - Configure linters and formatters with strict security rules
+
+### Compliance Standards to Follow
+- SOC 2 (Security, Availability, Confidentiality)
+- NIST 800-53 (Security Controls)
+- OWASP Top 10 (Web Application Security)
+- CIS Benchmarks (System Hardening)
+
+### DevOps Maturity Goals
+- [ ] Level 1: Basic CI/CD pipeline automation
+- [ ] Level 2: Automated testing and security scanning
+- [ ] Level 3: Infrastructure as Code with policy as code
+- [ ] Level 4: Observability and automated remediation
+- [ ] Level 5: Continuous optimization and self-healing
+
+### Security Best Practices
+- Shift-left security (security integrated into development)
+- Defense in depth (multiple security controls)
+- Least privilege principle (minimal access rights)
+- Zero trust architecture (verify everything)
+- Immutable infrastructure (replace rather than update)
+
+## 2. Infrastructure as Code (Terraform)
+
+### AWS Resource Organization
+- Use AWS Organizations for account management
+- Implement separate accounts for dev, staging, and production
+- Set up AWS Control Tower for governance
+- Establish a landing zone with security guardrails
+
+### Terraform Best Practices
+- Use remote state with S3 + DynamoDB locking
+- Implement state isolation per environment
+- Use modules for reusable components
+- Version pin all providers and modules
+- Implement Terraform validation in CI pipeline
+- Use terraform-docs for automatic documentation
+- Implement checkov for security scanning of IaC
+- Use tfenv for Terraform version management
+
+### Example Configurations
+
+**Remote Backend Configuration**
+```hcl
+# backend.tf
+terraform {
+  backend "s3" {
+    bucket         = "company-terraform-state"
+    key            = "project/environment/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "terraform-state-lock"
+    encrypt        = true
+    kms_key_id     = "alias/terraform-state-key"
+  }
+
+  required_version = ">= 1.5.0, < 2.0.0"
+  
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+```
+
+**Secure Network Module**
+```hcl
+# modules/network/main.tf
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "~> 5.0"
+  
+  name = "${var.project_name}-${var.environment}"
+  cidr = var.vpc_cidr
+  
+  azs             = var.availability_zones
+  private_subnets = var.private_subnet_cidrs
+  public_subnets  = var.public_subnet_cidrs
+  
+  enable_nat_gateway     = true
+  single_nat_gateway     = !var.high_availability
+  enable_vpn_gateway     = false
+  enable_dns_hostnames   = true
+  enable_dns_support     = true
+  
+  # Default security group - ingress/egress rules cleared to deny all
+  manage_default_security_group  = true
+  default_security_group_ingress = []
+  default_security_group_egress  = []
+  
+  # VPC Flow Logs
+  enable_flow_log                      = true
+  create_flow_log_cloudwatch_log_group = true
+  create_flow_log_cloudwatch_iam_role  = true
+  flow_log_max_aggregation_interval    = 60
+  
+  tags = merge(
+    var.common_tags,
+    {
+      Environment = var.environment
+      ManagedBy   = "terraform"
+    }
+  )
+}
+
+# Set up VPC endpoints for improved security
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id          = module.vpc.vpc_id
+  service_name    = "com.amazonaws.${var.region}.s3"
+  route_table_ids = concat(module.vpc.private_route_table_ids, module.vpc.public_route_table_ids)
+  
+  tags = merge(
+    var.common_tags,
+    {
+      Name        = "s3-endpoint-${var.environment}"
+      Environment = var.environment
+    }
+  )
+}
+```
+
+**Security Group with Principle of Least Privilege**
+```hcl
+# modules/security/web_security_groups.tf
+resource "aws_security_group" "web_server" {
+  name        = "${var.project_name}-${var.environment}-web-sg"
+  description = "Security group for web servers"
+  vpc_id      = var.vpc_id
+  
+  # No ingress rules defined here - we'll use security group rules
+  # to make the associations explicit and easier to audit
+  
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
+  }
+  
+  tags = merge(
+    var.common_tags,
+    {
+      Name        = "${var.project_name}-${var.environment}-web-sg"
+      Environment = var.environment
+    }
+  )
+  
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_security_group_rule" "web_http_from_alb" {
+  type                     = "ingress"
+  from_port                = 80
+  to_port                  = 80
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.web_server.id
+  source_security_group_id = var.alb_security_group_id
+  description              = "Allow HTTP from ALB only"
+}
+
+resource "aws_security_group_rule" "web_https_from_alb" {
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.web_server.id
+  source_security_group_id = var.alb_security_group_id
+  description              = "Allow HTTPS from ALB only"
+}
+```
+
+### Policy as Code with Sentinel
+- Implement HashiCorp Sentinel for policy enforcement
+- Create policies for security, compliance, and cost management
+- Test policies in CI/CD pipeline
+- Example policies:
+  - Enforce encryption at rest for all storage
+  - Require CloudTrail and VPC Flow Logs
+  - Prohibit public S3 buckets
+  - Enforce tagging standards
+  - Restrict regions for resource deployment
+
+### Terraform Security Considerations
+- Use dynamic provider credentials (AWS STS)
+- Encrypt state files and sensitive outputs
+- Minimize use of default VPCs and security groups
+- Implement strict IAM policies for Terraform runners
+- Use private Terraform module registry
+- Scan Terraform code with security tools (tfsec, terrascan)
+
+## 3. Security Implementation
+
+### Infrastructure Security
+- Use AWS KMS for encryption
+- Implement least privilege IAM policies
+- Enable AWS GuardDuty and Security Hub
+- Set up AWS Config for compliance
+- Implement AWS SecurityHub for security posture management
+- Use AWS IAM Access Analyzer to identify unintended access
+- Set up AWS CloudTrail for audit logging with immutable logs
+
+### Application Security
+- Use AWS Secrets Manager for secrets
+- Implement WAF for API protection
+- Set up VPC with private subnets
+- Use security groups with minimal access
+- Implement AWS Shield for DDoS protection
+- Enable AWS Inspector for vulnerability management
+- Use AWS Certificate Manager for TLS certificates
+- Implement runtime application self-protection (RASP)
+
+### Data Security
+- Encrypt data at rest and in transit
+- Implement S3 bucket policies with least privilege
+- Use AWS Macie for sensitive data discovery
+- Implement data access logging and monitoring
+- Set up DLP (Data Loss Prevention) controls
+- Create data classification framework and tagging
+- Implement automated data retention policies
+
+### CI/CD Security
+- Use OIDC for GitHub Actions to AWS authentication
+- Implement secret scanning in repositories
+- Run security scanning (SonarQube, OWASP dependency checks)
+- Sign infrastructure changes with Sigstore/Cosign
+- Implement software bill of materials (SBOM)
+- Scan container images for vulnerabilities (Trivy, Clair)
+- Implement branch protection and required reviews
+
+### Compliance Documentation
+- Map controls to compliance frameworks
+- Automate evidence collection
+- Set up regular compliance assessments
+- Maintain audit logs for required retention periods
+- Create compliance dashboard for visibility
+- Generate automated compliance reports
+- Establish remediation workflows for control failures
+
+## 4. CI/CD Pipeline
+
+### GitHub Actions Workflows
+
+**1. Infrastructure Pipeline**
+```yaml
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'terraform/**'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.0
+        
+      - name: Run checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: terraform
+          framework: terraform
+
+  terraform:
+    needs: security-scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+          
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.7
+          
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+        
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./terraform/environments/dev
+        
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: ./terraform/environments/dev
+        
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+        working-directory: ./terraform/environments/dev
+        
+      - name: Upload Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: ./terraform/environments/dev/tfplan
+          
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        run: terraform apply -auto-approve tfplan
+        working-directory: ./terraform/environments/dev
+```
+
+**2. Application Pipeline**
+```yaml
+name: Build and Deploy Application
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+  pull_request:
+    branches: [main]
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'My App'
+          path: 'src'
+          format: 'HTML'
+          out: 'reports'
+        
+      - name: Upload Dependency Check Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: reports
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./src
+        
+      - name: Run linting
+        run: npm run lint
+        working-directory: ./src
+        
+      - name: Run tests
+        run: npm test
+        working-directory: ./src
+        
+      - name: Code quality scan
+        uses: SonarSource/sonarcloud-github-action@v2
+        with:
+          projectBaseDir: src
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        
+  build-and-deploy:
+    needs: [security-scan, test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./src
+          
+      - name: Build application
+        run: npm run build
+        working-directory: ./src
+        
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: ./src
+          
+      - name: Sign artifacts
+        uses: sigstore/cosign-installer@main
+        
+      - name: Deploy to AWS
+        run: |
+          aws s3 sync ./src/build s3://your-app-bucket --delete
+          aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
+```
+
+**3. PR Validation Pipeline**
+```yaml
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Detect sensitive content
+        uses: gitleaks/gitleaks-action@v2
+        
+      - name: Conventional Commit Check
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Markdown Lint
+        uses: avto-dev/markdown-lint@v1
+        with:
+          args: './docs'
+```
+
+### CI/CD Security Practices
+- Only use approved GitHub Actions
+- Set minimum permissions for each workflow
+- Scan dependencies in CI pipeline
+- Implement policy checks in pipeline
+- Use environment secrets and variable segregation
+- Set up required approvals for production deployments
+- Implement postmortems for pipeline failures
+
+## 5. Monitoring and Observability
+
+### Infrastructure Monitoring
+- Implement AWS CloudWatch for logging and metrics
+- Set up CloudWatch Alarms for critical components
+- Use AWS X-Ray for distributed tracing
+- Create dashboards for key performance metrics
+- Set up anomaly detection for unusual patterns
+- Implement real-time monitoring with AWS Managed Grafana
+- Establish SLOs (Service Level Objectives) and monitor compliance
+
+### Monitoring Architecture
+```
+┌─────────────────┐   ┌──────────────┐   ┌───────────────┐
+│  CloudWatch     │   │  CloudTrail  │   │  VPC Flow Logs│
+│  Logs & Metrics │   │              │   │               │
+└───────┬─────────┘   └──────┬───────┘   └───────┬───────┘
+        │                    │                   │
+┌───────▼────────────────────▼───────────────────▼───────┐
+│                     Log Aggregation                     │
+│            (CloudWatch Logs + Lambda + Firehose)        │
+└───────────────────────────┬───────────────────────────┬┘
+                            │                           │
+                  ┌─────────▼──────────┐     ┌─────────▼──────────┐
+                  │  Real-time Analysis│     │   Long-term Storage│
+                  │  (Kinesis, Lambda) │     │   (S3, Athena)     │
+                  └─────────┬──────────┘     └────────────────────┘
+                            │
+             ┌─────────────┼─────────────┐
+             │             │             │
+    ┌────────▼───────┐ ┌───▼────────────┐ ┌─────────▼──────┐
+    │   Dashboards   │ │   Alerts       │ │  Automation    │
+    │   (Grafana)    │ │   (SNS, PD)    │ │  (Lambda)      │
+    └────────────────┘ └────────────────┘ └────────────────┘
+```
+
+### Alerting and Incident Response
+- Set up PagerDuty integration
+- Create escalation policies
+- Build incident management runbooks
+- Implement ChatOps integration (Slack)
+- Establish on-call rotation
+- Conduct regular incident response drills
+- Implement post-incident reviews
+
+### Log Management
+- Centralize log collection
+- Implement log retention policies
+- Create log-based alerting
+- Set up log analysis with AWS Athena
+- Secure log storage with encryption
+- Implement log compression and archiving
+- Use structured logging format
+
+## 6. Cost Management
+
+### Cost Optimization Strategies
+- Implement AWS Cost Explorer and Budgets
+- Use Spot Instances where applicable
+- Set up auto-scaling for dynamic workloads
+- Tag all resources for cost allocation
+- Implement reserved instances for stable workloads
+- Schedule development environments to shut down
+- Right-size resources based on usage patterns
+
+### Cost Monitoring and Control
+- Set up billing alarms
+- Create cost anomaly detection
+- Implement monthly budget reviews
+- Generate cost allocation reports
+- Establish FinOps processes
+- Track cost per service/feature
+- Automate resource cleanup
+
+## 7. Disaster Recovery and Business Continuity
+
+### Backup Strategy
+- Implement automated backups
+- Set up cross-region replication
+- Test backup restoration regularly
+- Establish backup retention policies
+- Document backup procedures
+- Encrypt backup data
+- Implement point-in-time recovery
+
+### Disaster Recovery Plan
+- Define RPO (Recovery Point Objective) and RTO (Recovery Time Objective)
+- Implement multi-region architecture
+- Document disaster recovery procedures
+- Conduct regular DR drills
+- Set up automated failover mechanisms
+- Establish business continuity plan
+- Train team on recovery procedures
+
+## 8. Implementation Timeline
+
+### Phase 1: Foundation (Weeks 1-2)
+- Set up GitHub repository with branch protection
+- Implement base Terraform modules
+- Create CI/CD pipeline skeletons
+- Set up development environment
+
+### Phase 2: Infrastructure (Weeks 3-4)
+- Deploy core infrastructure components
+- Implement security controls
+- Set up monitoring foundation
+- Establish backup procedures
+
+### Phase 3: Application (Weeks 5-6)
+- Deploy application environments
+- Implement CI/CD for application
+- Set up automated testing
+- Configure WAF and security measures
+
+### Phase 4: Observability (Weeks 7-8)
+- Enhance monitoring and logging
+- Create dashboards and alerts
+- Implement cost management
+- Set up SLO tracking
+
+### Phase 5: Optimization (Weeks 9-10)
+- Conduct security assessment
+- Optimize resource usage
+- Implement advanced automation
+- Document all procedures
+
+## 9. Best Practices Checklist
+
+### DevOps Practices
+- [ ] All infrastructure defined as code
+- [ ] Automated testing in CI pipeline
+- [ ] Security scanning integrated
+- [ ] Monitoring and alerting in place
+- [ ] Documentation complete
+- [ ] Disaster recovery plan established
+- [ ] Cost optimization implemented
+
+### Security Controls
+- [ ] Least privilege access implemented
+- [ ] Encryption at rest and in transit
+- [ ] Security monitoring and alerting
+- [ ] Vulnerability scanning automated
+- [ ] Compliance requirements documented
+- [ ] Incident response plan established
+- [ ] Regular security assessments scheduled
+
+### Operational Excellence
+- [ ] Runbooks created for common tasks
+- [ ] On-call procedures documented
+- [ ] Postmortem process established
+- [ ] Knowledge base maintained
+- [ ] Training program implemented
+- [ ] Continuous improvement process
+- [ ] Change management procedures
+
+## 10. Success Metrics
+
+### Technical Metrics
+- Deployment frequency
+- Lead time for changes
+- Mean time to recovery (MTTR)
+- Change failure rate
+- Infrastructure costs
+- Application performance
+- Security findings
+
+### Business Metrics
+- Time to market for new features
+- Customer satisfaction
+- Cost per transaction
+- Revenue impact of downtime
+- Development team productivity
+- Security incident costs
+- Compliance achievement
