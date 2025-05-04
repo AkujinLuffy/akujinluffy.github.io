@@ -13,18 +13,7 @@ This checklist is designed to help track progress when implementing an AWS-based
 - Monitoring and observability setup
 - Operations and optimization practices
 
-## How to Use
-
 ### View the Checklist
-
-Visit [https://yourusername.github.io/akujinluffy.github.io/](https://yourusername.github.io/akujinluffy.github.io/) to see the published checklist.
-
-### Track Your Progress
-
-1. Fork this repository to your GitHub account
-2. Enable GitHub Pages in your repository settings
-3. As you complete tasks, edit the `index.md` file and check the appropriate boxes
-4. Commit and push your changes
 
 ### Updating the Checklist
 
@@ -54,7 +43,7 @@ To enable GitHub Pages:
 1. Go to your repository settings
 2. Scroll down to the GitHub Pages section
 3. Select the source as "main branch"
-4. Your site will be published at `https://yourusername.github.io/akujinluffy.github.io/`
+4. Your site will be published at
 
 ## Customization
 

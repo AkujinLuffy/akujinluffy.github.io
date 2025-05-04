@@ -1,7 +1,7 @@
 ---
 layout: default
-title: AWS DevOps Project Checklist
-description: A comprehensive checklist for implementing AWS DevOps best practices with GitHub and Terraform
+title: AkujinLuffy Summer Homework
+description: AWS DevOps Project Checklist
 ---
 
 # AWS DevOps Project Checklist
