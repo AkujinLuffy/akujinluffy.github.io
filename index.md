@@ -2,58 +2,59 @@
 layout: default
 title: AkujinLuffy Summer Homework
 description: AWS DevOps Project Checklist
+private repo: https://github.com/AkujinLuffy/dev-ops
 ---
 
 # AWS DevOps Project Checklist
 
 ## Project Setup
 
-- [ ] **Repository Structure**
-  - [ ] Create GitHub repository with standardized folder structure
-  - [ ] Implement branch protection rules
-  - [ ] Set up .github folder with workflows, CODEOWNERS, and SECURITY.md
+- [x] **Repository Structure**
+  - [x] Create GitHub repository with standardized folder structure
+  - [x] Implement branch protection rules
+  - [x] Set up .github folder with workflows, CODEOWNERS, and SECURITY.md
 
-- [ ] **Collaboration Setup**
-  - [ ] Configure conventional commit standards (commitlint)
-  - [ ] Implement Semantic Versioning for releases
-  - [ ] Create issue and PR templates with security review checklists
+- [x] **Collaboration Setup**
+  - [x] Configure conventional commit standards (commitlint)
+  - [x] Implement Semantic Versioning for releases
+  - [x] Create issue and PR templates with security review checklists
 
-- [ ] **Security Foundations**
-  - [ ] Set up pre-commit hooks for secret detection
-  - [ ] Configure Dependabot for automated dependency updates
-  - [ ] Enable CodeQL for automated code scanning
-  - [ ] Implement code signing with GPG keys
+- [x] **Security Foundations**
+  - [x] Set up pre-commit hooks for secret detection
+  - [x] Configure Dependabot for automated dependency updates
+  - [x] Enable CodeQL for automated code scanning
+  - [x] Implement code signing with GPG keys
 
 ## Infrastructure as Code (Terraform)
 
-- [ ] **AWS Resource Organization**
-  - [ ] Configure AWS Organizations with separate accounts (dev/staging/prod)
-  - [ ] Set up AWS Control Tower for governance
-  - [ ] Establish landing zone with security guardrails
+- [x] **AWS Resource Organization**
+  - [x] Configure AWS Organizations with separate accounts (dev/staging/prod)
+  - [x] Set up AWS Control Tower for governance
+  - [x] Establish landing zone with security guardrails
 
-- [ ] **Terraform Implementation**
-  - [ ] Configure remote state with S3 + DynamoDB locking
-  - [ ] Create reusable modules and environment-specific configs
-  - [ ] Implement Terraform validation in CI pipeline
-  - [ ] Configure security scanning for IaC (checkov, tfsec)
+- [x] **Terraform Implementation**
+  - [x] Configure remote state with S3 + DynamoDB locking
+  - [x] Create reusable modules and environment-specific configs
+  - [x] Implement Terraform validation in CI pipeline
+  - [x] Configure security scanning for IaC (checkov, tfsec)
 
-- [ ] **Security Controls**
-  - [ ] Implement Policy as Code with HashiCorp Sentinel
-  - [ ] Set up secure networking with VPC endpoints and tight security groups
-  - [ ] Configure KMS for encryption and secrets management
+- [x] **Security Controls**
+  - [x] Implement Policy as Code with HashiCorp Sentinel
+  - [x] Set up secure networking with VPC endpoints and tight security groups
+  - [x] Configure KMS for encryption and secrets management
 
 ## CI/CD Pipeline
 
-- [ ] **GitHub Actions Workflows**
-  - [ ] Create infrastructure deployment workflow
-  - [ ] Set up application build and deploy pipeline
-  - [ ] Implement PR validation workflow
+- [x] **GitHub Actions Workflows**
+  - [x] Create infrastructure deployment workflow
+  - [x] Set up application build and deploy pipeline
+  - [x] Implement PR validation workflow
 
-- [ ] **Security Measures**
-  - [ ] Configure OIDC for GitHub Actions to AWS authentication
-  - [ ] Implement secret scanning in repositories
-  - [ ] Set up security scanning (SonarQube, OWASP dependency checks)
-  - [ ] Configure container image scanning
+- [x] **Security Measures**
+  - [x] Configure OIDC for GitHub Actions to AWS authentication
+  - [x] Implement secret scanning in repositories
+  - [x] Set up security scanning (SonarQube, OWASP dependency checks)
+  - [x] Configure container image scanning
 
 ## Security and Compliance
 
