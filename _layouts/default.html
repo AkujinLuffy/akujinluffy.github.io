@@ -7,24 +7,52 @@
 
 {% seo %}
     <link rel="stylesheet" href="{{ "/assets/css/style.css?v=" | append: site.github.build_revision | relative_url }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     {% include head-custom.html %}
   </head>
   <body>
     <div class="page-header">
+      <div class="logo-container">
+        <i class="fa-solid fa-server fa-spin-pulse"></i>
+      </div>
       <h1>{{ page.title | default: site.title }}</h1>
       <p>{{ page.description | default: site.description }}</p>
+      <p class="tagline">"Where we automate everything except our coffee breaks"</p>
     </div>
 
     <div class="main-content">
+      <div class="quote-box">
+        <i class="fa-solid fa-quote-left"></i>
+        <span id="devops-quote">In DevOps, we don't have problems, just undocumented features.</span>
+        <i class="fa-solid fa-quote-right"></i>
+      </div>
+      
       {{ content }}
+      
+      <div class="fun-fact">
+        <i class="fa-solid fa-lightbulb"></i>
+        <span id="fun-fact">Did you know? The first actual computer "bug" was a real moth trapped in a computer in 1947!</span>
+      </div>
     </div>
 
     <footer>
+      <div class="terminal-container">
+        <div class="terminal-header">
+          <span class="terminal-button"></span>
+          <span class="terminal-button"></span>
+          <span class="terminal-button"></span>
+          <span class="terminal-title">terminal</span>
+        </div>
+        <div class="terminal-body">
+          <span class="terminal-prompt">AkujinLuffy@devops:~$</span> <span class="terminal-text">./deploy_awesome_stuff.sh</span>
+          <br>
+          <span class="terminal-output">Deploying awesomeness... 100% complete</span>
+          <br>
+          <span class="terminal-prompt">AkujinLuffy@devops:~$</span> <span class="terminal-cursor">_</span>
+        </div>
+      </div>
       <p>DevOps Project by <a href="https://github.com/AkujinLuffy">AkujinLuffy</a> &copy; {{ site.time | date: '%Y' }}</p>
-      <p>Powered by <a href="https://pages.github.com/">GitHub Pages</a> and <a href="https://jekyllrb.com/">Jekyll</a></p>
+      <p class="footer-joke">Powered by <a href="https://pages.github.com/">GitHub Pages</a>, <a href="https://jekyllrb.com/">Jekyll</a>, and approximately 8 cups of coffee</p>
+      <p class="last-update">Last updated: <span id="last-update-time">2025-06-22</span></p>
     </footer>
     
     <script src="{{ "/assets/js/main.js" | relative_url }}"></script>
